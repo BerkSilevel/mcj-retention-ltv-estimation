@@ -49,7 +49,7 @@ def run_retention_dashboard():
 
     for dim in dimension_options:
         if dim in df.columns:
-            if st.checkbox(f"{dim} kullan", value=False):
+            if st.checkbox(f"{dim}", value=False):
                 values = df[dim].dropna().unique().tolist()
                 selected = st.multiselect(f"{dim} için değer(ler)", values, default=values)
                 if selected:
