@@ -7,3 +7,5 @@ service_account.json
 generate_secret_toml.py
 
 .devcontainer
+
+__pycache__/
