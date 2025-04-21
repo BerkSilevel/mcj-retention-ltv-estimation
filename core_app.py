@@ -1,5 +1,4 @@
 import os
-import json
 import pandas as pd
 import numpy as np
 import joblib
@@ -8,7 +7,6 @@ from tempfile import NamedTemporaryFile
 import streamlit as st
 from google.cloud import bigquery
 import plotly.graph_objects as go
-from model import DecayRetentionModel
 
 def run_retention_dashboard():
     # --- Service Account Key: st.secrets üzerinden geçici dosya oluştur ---
@@ -22,7 +20,7 @@ def run_retention_dashboard():
     query = st.secrets["query"]
 
     # --- Veri Yükleme: Session'dan ya da BigQuery'den ---
-    if st.button("Veriyi Çek 📡") or "retention_df" not in st.session_state:
+    if st.button("Pull the Dataset From BigQuery 📡") or "retention_df" not in st.session_state:
         try:
             df = client.query(query).result().to_dataframe()
             st.session_state["retention_df"] = df
@@ -39,14 +37,14 @@ def run_retention_dashboard():
 
     # --- Kolon İsimlerini Düzenle ---
     df.rename(columns={
-        'install_count': 'installs',
+        'install_count': 'Install_Date',
         'D1_user_count': 'retention_day_1',
         'D3_user_count': 'retention_day_3'
     }, inplace=True)
 
     # --- Dimension Seçimi ---
-    st.subheader("🔍 Dimension Seçimi")
-    dimension_options = ["install_date", "campaign_name", "device_operating_system"]
+    st.subheader("🔍 Choose Dimension ")
+    dimension_options = ["Install_Date", "Campaign_Name", "OS"]
     selected_dimensions = {}
 
     for dim in dimension_options:
@@ -66,16 +64,16 @@ def run_retention_dashboard():
         num_cols = filtered_df.select_dtypes(include="number").columns.tolist()
         agg_df = filtered_df.groupby(groupby_dims)[num_cols].sum().reset_index()
 
-        if 'cost' in agg_df.columns and 'installs' in agg_df.columns:
-            agg_df['CPI'] = agg_df['cost'] / agg_df['installs'].replace(0, np.nan)
+        if 'Cost' in agg_df.columns and 'Installs' in agg_df.columns:
+            agg_df['CPI'] = agg_df['Cost'] / agg_df['Installs'].replace(0, np.nan)
 
-        if 'ad_revenue' in agg_df.columns and 'DAU' in agg_df.columns:
-            agg_df['ARPU'] = agg_df['ad_revenue'] / agg_df['installs'].replace(0, np.nan)
+        if 'Ad_Revenue' in agg_df.columns and 'DAU' in agg_df.columns:
+            agg_df['ARPU'] = agg_df['Ad_Revenue'] / agg_df['Installs'].replace(0, np.nan)
 
         try:
-            if {'retention_day_1', 'retention_day_3', 'installs'}.issubset(agg_df.columns):
-                agg_df['D1_retention'] = agg_df['retention_day_1'] / agg_df['installs']
-                agg_df['D3_retention'] = agg_df['retention_day_3'] / agg_df['installs']
+            if {'retention_day_1', 'retention_day_3', 'Installs'}.issubset(agg_df.columns):
+                agg_df['D1_retention'] = agg_df['retention_day_1'] / agg_df['Installs']
+                agg_df['D3_retention'] = agg_df['retention_day_3'] / agg_df['Installs']
 
                 model_path = Path(__file__).parent / "model_d4_d15.pkl"
                 model = joblib.load(model_path)
@@ -98,7 +96,7 @@ def run_retention_dashboard():
                 st.subheader("📊 Aggregated + Tahminli Veri")
                 st.dataframe(agg_df)
 
-                st.subheader("📈 D1–D15 Retention Grafiği")
+                st.subheader("📈 Graph of D1–D15 Retention")
                 fig = go.Figure()
 
                 for i, row in agg_df.iterrows():
@@ -113,14 +111,14 @@ def run_retention_dashboard():
                     ))
 
                 fig.update_layout(
-                    xaxis_title="Gün",
-                    yaxis_title="Tahmini Retention Oranı",
+                    xaxis_title="Day",
+                    yaxis_title="Estimated Retention Rate",
                     yaxis_tickformat=".0%",
                     template="plotly_white"
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                st.subheader("💰 ARPU & LTV Tahmini")
+                st.subheader("💰 Estimated ARPU & LTV ")
 
                 if {'ARPU', 'CPI'}.issubset(agg_df.columns):
                     ltv_values = []
@@ -150,16 +148,16 @@ def run_retention_dashboard():
                         ))
 
                     fig_ltv.update_layout(
-                        title="📈 Günlükten Kümülatife LTV Eğrisi",
-                        xaxis_title="Gün",
-                        yaxis_title="Kümülatif LTV ($)",
+                        title="📈 Cumulative LTV",
+                        xaxis_title="Day ",
+                        yaxis_title="Cumulative LTV ($)",
                         template="plotly_white"
                     )
                     st.plotly_chart(fig_ltv, use_container_width=True)
                 else:
                     st.warning("ARPU ve CPI hesaplaması için gerekli veriler eksik.")
             else:
-                st.warning("D1, D3 veya installs kolonları eksik.")
+                st.warning("D1, D3 veya Installs kolonları eksik.")
         except Exception as e:
             st.error(f"❌ Tahmin sırasında hata oluştu: {e}")
     else:

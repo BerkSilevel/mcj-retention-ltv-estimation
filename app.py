@@ -7,6 +7,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🎯 D4–D15 Retention Tahmini | BigQuery + ML + Streamlit")
+st.title("🎯  Retention & LTV Prediction Dashboard")
 
 run_retention_dashboard()
